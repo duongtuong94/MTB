@@ -1,0 +1,8 @@
+{
+  "name": "Test",
+  "description": "Private pyRevit tools for Revit 2025",
+  "author": "Internal Company Tools",
+  "type": "extension",
+  "version": "1.0.0",
+  "rocket_mode_compatible": true
+}
