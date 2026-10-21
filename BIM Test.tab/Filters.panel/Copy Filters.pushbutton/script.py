@@ -19,6 +19,8 @@ from System.Windows.Forms import (
 
 from pyrevit import revit, DB
 from companytools_common import eid_value, view_can_receive_filters, view_display_name
+from bim_ui import configure_form, px, table, flow, section, button, viewport
+from System.Windows.Forms import DockStyle, RowStyle, ColumnStyle, SizeType, Padding
 
 
 doc = revit.doc
@@ -29,13 +31,7 @@ source_view = doc.ActiveView
 class CopyFiltersForm(Form):
     def __init__(self):
         Form.__init__(self)
-        self.Text = u'Copy Filters'
-        self.ClientSize = Size(587, 471)
-        self.FormBorderStyle = FormBorderStyle.FixedDialog
-        self.StartPosition = FormStartPosition.CenterScreen
-        self.MaximizeBox = False
-        self.MinimizeBox = False
-        self.ShowIcon = False
+        configure_form(self, u'BIM Test | Copy Filters', 800, 600)
 
         self.filter_ids = []
         self.all_views = []
@@ -44,102 +40,81 @@ class CopyFiltersForm(Form):
 
         self.filters_list = CheckedListBox()
         self.filters_list.CheckOnClick = True
-        self.filters_list.Location = Point(14, 24)
-        self.filters_list.Size = Size(260, 326)
+        self.filters_list.Dock = DockStyle.Fill
+        self.filters_list.IntegralHeight = False
+        self.filters_list.HorizontalScrollbar = True
 
         self.views_list = CheckedListBox()
         self.views_list.CheckOnClick = True
-        self.views_list.Location = Point(316, 24)
-        self.views_list.Size = Size(260, 326)
+        self.views_list.Dock = DockStyle.Fill
+        self.views_list.IntegralHeight = False
+        self.views_list.HorizontalScrollbar = True
 
-        label_filters = Label()
-        label_filters.Text = u'Select Filters to Copy'
-        label_filters.AutoSize = True
-        label_filters.Location = Point(86, 8)
-
-        label_views = Label()
-        label_views.Text = u'Copy Filters to Selected Views'
-        label_views.AutoSize = True
-        label_views.Location = Point(365, 8)
-
-        arrow = Label()
-        arrow.Text = u'⇒'
-        arrow.Font = Font('Segoe UI Symbol', 18, FontStyle.Bold)
-        arrow.AutoSize = True
-        arrow.Location = Point(280, 180)
-
-        self.copy_button = Button()
-        self.copy_button.Text = u'Copy'
+        self.copy_button = button(self, u'Copy', self.copy_click)
         self.copy_button.BackColor = SystemColors.ActiveCaption
-        self.copy_button.Font = Font('Segoe UI', 9, FontStyle.Bold)
-        self.copy_button.Location = Point(195, 361)
-        self.copy_button.Size = Size(79, 25)
-        self.copy_button.Click += self.copy_click
-
-        filter_all = Button()
-        filter_all.Text = u'Check All'
-        filter_all.Location = Point(12, 361)
-        filter_all.Size = Size(93, 23)
-        filter_all.Click += lambda s, e: self.set_all(self.filters_list, True)
-
-        filter_none = Button()
-        filter_none.Text = u'Uncheck All'
-        filter_none.Location = Point(12, 390)
-        filter_none.Size = Size(93, 23)
-        filter_none.Click += lambda s, e: self.set_all(self.filters_list, False)
-
-        view_all = Button()
-        view_all.Text = u'Check All'
-        view_all.Location = Point(316, 361)
-        view_all.Size = Size(93, 23)
-        view_all.Click += lambda s, e: self.set_all(self.views_list, True)
-
-        view_none = Button()
-        view_none.Text = u'Uncheck All'
-        view_none.Location = Point(316, 390)
-        view_none.Size = Size(93, 23)
-        view_none.Click += lambda s, e: self.set_all(self.views_list, False)
-
-        view_group = GroupBox()
-        view_group.Text = u'Views'
-        view_group.Location = Point(429, 356)
-        view_group.Size = Size(146, 61)
 
         self.open_radio = RadioButton()
         self.open_radio.Text = u'Active Views'
-        self.open_radio.Location = Point(6, 18)
         self.open_radio.AutoSize = True
         self.open_radio.CheckedChanged += self.view_scope_changed
 
         self.all_radio = RadioButton()
         self.all_radio.Text = u'All Views'
-        self.all_radio.Location = Point(6, 40)
         self.all_radio.AutoSize = True
         self.all_radio.Checked = True
         self.all_radio.CheckedChanged += self.view_scope_changed
 
-        view_group.Controls.Add(self.open_radio)
-        view_group.Controls.Add(self.all_radio)
+        scope = flow(self)
+        scope.Controls.Add(self.open_radio)
+        scope.Controls.Add(self.all_radio)
 
-        close_button = Button()
-        close_button.Text = u'Close'
-        close_button.Location = Point(501, 437)
-        close_button.Size = Size(75, 23)
-        close_button.Click += lambda s, e: self.Close()
+        close_button = button(self, u'Close', lambda s, e: self.Close())
         self.CancelButton = close_button
 
         self.status = Label()
-        self.status.AutoSize = False
-        self.status.Location = Point(12, 428)
-        self.status.Size = Size(470, 34)
+        self.status.AutoSize = True
+        self.status.Dock = DockStyle.Top
         self.status.Text = u'Source: {0}'.format(source_view.Name)
 
-        for control in (
-            self.filters_list, self.views_list, label_filters, label_views, arrow,
-            self.copy_button, filter_all, filter_none, view_all, view_none,
-            view_group, close_button, self.status
-        ):
-            self.Controls.Add(control)
+        root = table(rows=3)
+        root.Padding = Padding(px(self, 8))
+        root.ColumnStyles.Add(ColumnStyle(SizeType.Percent, 100.0))
+        root.RowStyles.Add(RowStyle(SizeType.Percent, 100.0))
+        root.RowStyles.Add(RowStyle(SizeType.AutoSize))
+        root.RowStyles.Add(RowStyle(SizeType.AutoSize))
+        self.Controls.Add(root)
+        content = table(columns=2)
+        content.ColumnStyles.Add(ColumnStyle(SizeType.Percent, 50.0))
+        content.ColumnStyles.Add(ColumnStyle(SizeType.Percent, 50.0))
+        content.RowStyles.Add(RowStyle(SizeType.Percent, 100.0))
+        for column, title, listing in ((0, u'Filters to copy', self.filters_list),
+                                       (1, u'Destination Views / Templates', self.views_list)):
+            pane = table(rows=3)
+            pane.ColumnStyles.Add(ColumnStyle(SizeType.Percent, 100.0))
+            pane.RowStyles.Add(RowStyle(SizeType.Percent, 100.0))
+            pane.RowStyles.Add(RowStyle(SizeType.AutoSize))
+            pane.RowStyles.Add(RowStyle(SizeType.AutoSize))
+            pane.Controls.Add(section(self, title, listing, fill=True), 0, 0)
+            actions = flow(self)
+            actions.Controls.Add(button(self, u'Check All',
+                lambda s, e, target=listing: self.set_all(target, True)))
+            actions.Controls.Add(button(self, u'Uncheck All',
+                lambda s, e, target=listing: self.set_all(target, False)))
+            pane.Controls.Add(actions, 0, 1)
+            if column == 1:
+                pane.Controls.Add(section(self, u'Views', scope), 0, 2)
+            content.Controls.Add(pane, column, 0)
+        root.Controls.Add(viewport(self, content, 600, 260), 0, 0)
+        root.Controls.Add(self.status, 0, 1)
+        footer = flow(self)
+        footer.Controls.Add(self.copy_button)
+        footer.Controls.Add(close_button)
+        root.Controls.Add(footer, 0, 2)
+
+        def wrap_status(sender=None, args=None):
+            self.status.MaximumSize = Size(max(1, root.ClientSize.Width - root.Padding.Horizontal), 0)
+        root.SizeChanged += wrap_status
+        wrap_status()
 
         self.load_data()
 

@@ -22,7 +22,7 @@ def __selfinit__(script_cmp, ui_button_cmp, __rvt__):
 def main():
     root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
     try:
-        with forms.ProgressBar(title='BIM Test | Updating from GitHub...', indeterminate=True):
+        with forms.ProgressBar(title='BIM Test | Checking published versions...', indeterminate=True):
             result = update_tools(root)
     except UpdateError as error:
         message = u'{0}'.format(error)
@@ -38,12 +38,16 @@ def main():
         mark_current()
     except Exception:
         script.get_logger().exception('Could not refresh update icon')
-    if result['changed']:
-        message = (u'Đã cập nhật BIM Test: {0} → {1}.\n\n'
+    if result['release'] is None:
+        message = (u'Chưa có bản phát hành BIM Test.\n\n'
+                   u'Update Tools chỉ nhận tag phiên bản vX.Y.Z. Push code lên main không phát hành bản cập nhật.')
+    elif result['changed']:
+        message = (u'Đã cập nhật BIM Test {2}: {0} → {1}.\n\n'
                    u'Chạy pyRevit > Reload để nạp giao diện và code mới.').format(
-                       result['before'][:8], result['after'][:8])
+                       result['before'][:8], result['after'][:8], result['release'])
     else:
-        message = u'BIM Test đang ở bản mới nhất ({0}).'.format(result['after'][:8])
+        message = (u'Máy này đã có bản phát hành mới nhất {0}.\n'
+                   u'Commit local: {1}.').format(result['release'], result['after'][:8])
     forms.alert(message, title='BIM Test | Update Tools')
 
 

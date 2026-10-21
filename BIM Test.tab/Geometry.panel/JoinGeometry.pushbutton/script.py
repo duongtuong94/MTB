@@ -23,6 +23,7 @@ from System.Windows.Forms import (
 )
 
 from pyrevit import revit, DB, script
+from bim_ui import configure_form, px, table, flow, section, viewport
 
 
 # -----------------------------------------------------------------------------
@@ -442,30 +443,30 @@ class PairRow(Panel):
 
     def _layout_controls(self, sender, args):
         """Lay out controls from actual row width, not design-time pixels."""
-        w = max(320, self.ClientSize.Width)
-        h = max(42, self.ClientSize.Height)
+        w = max(px(self, 320), self.ClientSize.Width)
+        h = max(self.left_combo.PreferredHeight + px(self, 12), self.ClientSize.Height)
 
-        side_margin = 4
-        gap = 8
-        reverse_w = 50
+        side_margin = px(self, 4)
+        gap = px(self, 8)
+        reverse_w = max(px(self, 50), self.reverse_button.PreferredSize.Width)
 
         available = w - (side_margin * 2) - reverse_w - (gap * 2)
-        combo_w = max(100, int(available / 2))
+        combo_w = max(px(self, 100), int(available / 2))
 
-        combo_h = 28
+        combo_h = px(self, 28)
         try:
-            combo_h = max(24, self.left_combo.PreferredHeight)
+            combo_h = max(px(self, 24), self.left_combo.PreferredHeight)
         except Exception:
             pass
 
         y_combo = max(2, int((h - combo_h) / 2))
-        button_h = 28
+        button_h = max(combo_h, self.reverse_button.PreferredSize.Height)
         y_button = max(2, int((h - button_h) / 2))
 
         left_x = side_margin
         reverse_x = left_x + combo_w + gap
         right_x = reverse_x + reverse_w + gap
-        right_w = max(100, w - right_x - side_margin)
+        right_w = max(px(self, 100), w - right_x - side_margin)
 
         self.left_combo.Location = Point(left_x, y_combo)
         self.left_combo.Size = Size(combo_w, combo_h)
@@ -490,21 +491,12 @@ class PairRow(Panel):
 
 
 class AutoJoinForm(Form):
-    """DPI-aware/responsive UI for 100%-200% Windows scaling."""
+    """Measured DPI layout with a scrollable body and pinned actions."""
 
     def __init__(self):
         Form.__init__(self)
 
-        self.Text = u'Auto Join Geometry — Revit 2025'
-        self.AutoScaleMode = AutoScaleMode.Dpi
-        self.FormBorderStyle = FormBorderStyle.Sizable
-        self.StartPosition = FormStartPosition.CenterScreen
-        self.MaximizeBox = True
-        self.MinimizeBox = False
-        self.ShowIcon = False
-
-        self.ClientSize = Size(720, 520)
-        self.MinimumSize = Size(640, 460)
+        configure_form(self, u'BIM Test | Join Geometry', 760, 580)
 
         self.result_pairs = None
         self.use_selection = False
@@ -514,10 +506,9 @@ class AutoJoinForm(Form):
         self.root.Padding = Padding(12)
         self.root.Margin = Padding(0)
         self.root.ColumnCount = 1
-        self.root.RowCount = 4
+        self.root.RowCount = 3
         self.root.ColumnStyles.Add(ColumnStyle(SizeType.Percent, 100.0))
         self.root.RowStyles.Add(RowStyle(SizeType.AutoSize))
-        self.root.RowStyles.Add(RowStyle(SizeType.Absolute, 36.0))
         self.root.RowStyles.Add(RowStyle(SizeType.Percent, 100.0))
         self.root.RowStyles.Add(RowStyle(SizeType.AutoSize))
         self.Controls.Add(self.root)
@@ -526,21 +517,7 @@ class AutoJoinForm(Form):
         restore_selection = load_saved_scope(selected_count)
 
         # Scope
-        scope_group = GroupBox()
-        scope_group.Text = u'Scope'
-        scope_group.Dock = DockStyle.Top
-        scope_group.AutoSize = True
-        scope_group.AutoSizeMode = AutoSizeMode.GrowAndShrink
-        scope_group.Margin = Padding(0, 0, 0, 8)
-        scope_group.Padding = Padding(10)
-
-        scope_layout = FlowLayoutPanel()
-        scope_layout.Dock = DockStyle.Fill
-        scope_layout.AutoSize = True
-        scope_layout.AutoSizeMode = AutoSizeMode.GrowAndShrink
-        scope_layout.FlowDirection = FlowDirection.TopDown
-        scope_layout.WrapContents = False
-        scope_layout.Margin = Padding(0)
+        scope_layout = flow(self, vertical=True)
 
         self.selected_radio = RadioButton()
         self.selected_radio.Text = u'Join all selected elements ({0})'.format(selected_count)
@@ -557,8 +534,14 @@ class AutoJoinForm(Form):
 
         scope_layout.Controls.Add(self.selected_radio)
         scope_layout.Controls.Add(self.view_radio)
-        scope_group.Controls.Add(scope_layout)
+        scope_group = section(self, u'Scope', scope_layout)
         self.root.Controls.Add(scope_group, 0, 0)
+
+        body = table(rows=2)
+        body.ColumnStyles.Add(ColumnStyle(SizeType.Percent, 100.0))
+        body.RowStyles.Add(RowStyle(SizeType.AutoSize))
+        body.RowStyles.Add(RowStyle(SizeType.Percent, 100.0))
+        self.root.Controls.Add(viewport(self, body, 580, 160), 0, 1)
 
         # Header
         header = TableLayoutPanel()
@@ -569,7 +552,7 @@ class AutoJoinForm(Form):
         header.ColumnCount = 3
         header.RowCount = 1
         header.ColumnStyles.Add(ColumnStyle(SizeType.Percent, 50.0))
-        header.ColumnStyles.Add(ColumnStyle(SizeType.Absolute, 55.0))
+        header.ColumnStyles.Add(ColumnStyle(SizeType.Absolute, float(px(self, 70))))
         header.ColumnStyles.Add(ColumnStyle(SizeType.Percent, 50.0))
         header.RowStyles.Add(RowStyle(SizeType.Percent, 100.0))
 
@@ -577,23 +560,27 @@ class AutoJoinForm(Form):
         left_label.Text = u'Category [Priority]'
         left_label.TextAlign = ContentAlignment.MiddleCenter
         left_label.Dock = DockStyle.Fill
+        left_label.AutoSize = True
         left_label.AutoEllipsis = True
 
         reverse_label = Label()
         reverse_label.Text = u'Reverse'
         reverse_label.TextAlign = ContentAlignment.MiddleCenter
         reverse_label.Dock = DockStyle.Fill
+        reverse_label.AutoSize = True
 
         right_label = Label()
         right_label.Text = u'Join with Category'
         right_label.TextAlign = ContentAlignment.MiddleCenter
         right_label.Dock = DockStyle.Fill
+        right_label.AutoSize = True
         right_label.AutoEllipsis = True
 
         header.Controls.Add(left_label, 0, 0)
         header.Controls.Add(reverse_label, 1, 0)
         header.Controls.Add(right_label, 2, 0)
-        self.root.Controls.Add(header, 0, 1)
+        header.AutoSize = True
+        body.Controls.Add(header, 0, 0)
 
         # Rows
         # Plain Panel is intentional here. Nested FlowLayoutPanel +
@@ -605,7 +592,7 @@ class AutoJoinForm(Form):
         self.rows_panel.AutoScroll = True
         self.rows_panel.BorderStyle = BorderStyle.FixedSingle
         self.rows_panel.SizeChanged += self._resize_rows
-        self.root.Controls.Add(self.rows_panel, 0, 2)
+        body.Controls.Add(self.rows_panel, 0, 1)
 
         for left_index, right_index in load_saved_pairs():
             self.add_pair_row(left_index, right_index)
@@ -626,7 +613,7 @@ class AutoJoinForm(Form):
         left_actions.AutoSize = True
         left_actions.AutoSizeMode = AutoSizeMode.GrowAndShrink
         left_actions.FlowDirection = FlowDirection.LeftToRight
-        left_actions.WrapContents = False
+        left_actions.WrapContents = True
         left_actions.Margin = Padding(0)
 
         self.remove_button = Button()
@@ -652,7 +639,7 @@ class AutoJoinForm(Form):
         right_actions.AutoSize = True
         right_actions.AutoSizeMode = AutoSizeMode.GrowAndShrink
         right_actions.FlowDirection = FlowDirection.LeftToRight
-        right_actions.WrapContents = False
+        right_actions.WrapContents = True
         right_actions.Margin = Padding(0)
 
         self.join_button = Button()
@@ -680,7 +667,14 @@ class AutoJoinForm(Form):
         spacer.Dock = DockStyle.Fill
         bottom.Controls.Add(spacer, 1, 0)
         bottom.Controls.Add(right_actions, 2, 0)
-        self.root.Controls.Add(bottom, 0, 3)
+        # One wrapping action strip prevents opposing button groups colliding.
+        actions = flow(self)
+        for action in (self.remove_button, self.add_button, self.join_button, self.close_button):
+            action.AutoSize = True
+            action.MinimumSize = Size(0, 0)
+            action.Padding = Padding(px(self, 8), px(self, 4), px(self, 8), px(self, 4))
+            actions.Controls.Add(action)
+        self.root.Controls.Add(actions, 0, 2)
 
         self.CancelButton = self.close_button
         self.Shown += self._on_shown
@@ -689,13 +683,8 @@ class AutoJoinForm(Form):
         self._resize_rows(sender, args)
 
     def _row_width(self):
-        width = self.rows_panel.ClientSize.Width - 10
-        try:
-            if self.rows_panel.VerticalScroll.Visible:
-                width -= System.Windows.Forms.SystemInformation.VerticalScrollBarWidth
-        except Exception:
-            pass
-        return max(320, width)
+        # ClientSize already excludes a visible vertical scrollbar.
+        return max(px(self, 320), self.rows_panel.ClientSize.Width - px(self, 10))
 
     def _layout_rows(self, scroll_to_control=None):
         """Manually position rows so controls cannot disappear in nested layouts."""
@@ -716,13 +705,14 @@ class AutoJoinForm(Form):
             pass
 
         width = self._row_width()
-        top = 5
-        row_h = 42
-        gap = 4
+        top = px(self, 5)
+        gap = px(self, 4)
 
         for control in self.rows_panel.Controls:
             try:
-                control.Location = Point(4, top)
+                row_h = max(px(self, 42), control.left_combo.PreferredHeight + px(self, 12),
+                            control.reverse_button.PreferredSize.Height + px(self, 8))
+                control.Location = Point(px(self, 4), top)
                 control.Size = Size(width, row_h)
                 control.Visible = True
                 control._layout_controls(None, None)

@@ -30,6 +30,7 @@ from System.Windows.Forms import (
 )
 
 from pyrevit import revit, DB
+from bim_ui import configure_form, px, table, flow, section, button, viewport
 
 doc = revit.doc
 uidoc = revit.uidoc
@@ -324,16 +325,7 @@ def unique_filter_name(base):
 class ColorFilterForm(Form):
     def __init__(self):
         Form.__init__(self)
-        self.Text = u'Test Color Filter'
-        self.Font = SystemFonts.MessageBoxFont 
-        self.AutoScaleMode = AutoScaleMode.Dpi
-        self.StartPosition = FormStartPosition.CenterScreen
-        self.FormBorderStyle = FormBorderStyle.Sizable
-        self.ClientSize = Size(1900, 1600)
-        self.MinimumSize = Size(1000, 600)
-        self.MaximizeBox = True
-        self.MinimizeBox = True
-        self.ShowIcon = False
+        configure_form(self, u'BIM Test | Color Filter', 1180, 740)
 
         self.elements = []
         self.categories = []
@@ -350,94 +342,82 @@ class ColorFilterForm(Form):
         self._refresh_source()
 
     def _build_ui(self):
-        self.tbl_main = TableLayoutPanel(Dock=DockStyle.Fill, ColumnCount=4, RowCount=1)
-        self.tbl_main.Padding = Padding(8)
-        self.tbl_main.ColumnStyles.Add(ColumnStyle(SizeType.Percent, 22.0))
-        self.tbl_main.ColumnStyles.Add(ColumnStyle(SizeType.Percent, 22.0))
-        self.tbl_main.ColumnStyles.Add(ColumnStyle(SizeType.Percent, 36.0))
-        self.tbl_main.ColumnStyles.Add(ColumnStyle(SizeType.AutoSize)) 
+        root = table(rows=3)
+        root.Padding = Padding(px(self, 8))
+        root.ColumnStyles.Add(ColumnStyle(SizeType.Percent, 100.0))
+        root.RowStyles.Add(RowStyle(SizeType.Percent, 100.0))
+        root.RowStyles.Add(RowStyle(SizeType.AutoSize))
+        root.RowStyles.Add(RowStyle(SizeType.AutoSize))
+        self.Controls.Add(root)
+
+        self.tbl_main = table(columns=4)
+        for width in (21.0, 23.0, 31.0, 25.0):
+            self.tbl_main.ColumnStyles.Add(ColumnStyle(SizeType.Percent, width))
         self.tbl_main.RowStyles.Add(RowStyle(SizeType.Percent, 100.0))
-        self.Controls.Add(self.tbl_main)
 
-        # ====== COL 0: CATEGORY ======
-        t0 = TableLayoutPanel(Dock=DockStyle.Fill, ColumnCount=1, RowCount=3)
-        t0.RowStyles.Add(RowStyle(SizeType.AutoSize))
-        t0.RowStyles.Add(RowStyle(SizeType.AutoSize))
-        t0.RowStyles.Add(RowStyle(SizeType.Percent, 100.0))
-
-        self.grp_scope = GroupBox(Text=u'Selection Range', Dock=DockStyle.Fill, AutoSize=True)
-        f_scope = FlowLayoutPanel(Dock=DockStyle.Fill, AutoSize=True, WrapContents=False)
+        categories = table(rows=3)
+        categories.ColumnStyles.Add(ColumnStyle(SizeType.Percent, 100.0))
+        for style in (SizeType.AutoSize, SizeType.AutoSize, SizeType.Percent):
+            categories.RowStyles.Add(RowStyle(style, 100.0 if style == SizeType.Percent else 0.0))
+        scope = flow(self)
         self.rb_view = RadioButton(Text=u'Active View', AutoSize=True, Checked=True)
         self.rb_project = RadioButton(Text=u'Project', AutoSize=True)
-        f_scope.Controls.Add(self.rb_view)
-        f_scope.Controls.Add(self.rb_project)
-        self.grp_scope.Controls.Add(f_scope)
-        t0.Controls.Add(self.grp_scope, 0, 0)
-
-        self.grp_source = GroupBox(Text=u'Parameter Source', Dock=DockStyle.Fill, AutoSize=True)
-        f_source = FlowLayoutPanel(Dock=DockStyle.Fill, AutoSize=True, WrapContents=False)
+        scope.Controls.Add(self.rb_view)
+        scope.Controls.Add(self.rb_project)
+        self.grp_scope = section(self, u'Selection Range', scope)
+        categories.Controls.Add(self.grp_scope, 0, 0)
+        source = flow(self)
         self.rb_instance = RadioButton(Text=u'Instance', AutoSize=True, Checked=True)
         self.rb_type = RadioButton(Text=u'Type', AutoSize=True)
-        f_source.Controls.Add(self.rb_instance)
-        f_source.Controls.Add(self.rb_type)
-        self.grp_source.Controls.Add(f_source)
-        t0.Controls.Add(self.grp_source, 0, 1)
+        source.Controls.Add(self.rb_instance)
+        source.Controls.Add(self.rb_type)
+        self.grp_source = section(self, u'Parameter Source', source)
+        categories.Controls.Add(self.grp_source, 0, 1)
+        self.lst_cat = ListBox(Dock=DockStyle.Fill, IntegralHeight=False, HorizontalScrollbar=True)
+        self.grp_cat = section(self, u'Category', self.lst_cat, fill=True)
+        categories.Controls.Add(self.grp_cat, 0, 2)
+        self.tbl_main.Controls.Add(categories, 0, 0)
 
-        self.grp_cat = GroupBox(Text=u'Category', Dock=DockStyle.Fill)
-        self.lst_cat = ListBox(Dock=DockStyle.Fill, IntegralHeight=False)
-        self.grp_cat.Controls.Add(self.lst_cat)
-        t0.Controls.Add(self.grp_cat, 0, 2)
+        parameters = table(rows=2)
+        parameters.ColumnStyles.Add(ColumnStyle(SizeType.Percent, 100.0))
+        parameters.RowStyles.Add(RowStyle(SizeType.AutoSize))
+        parameters.RowStyles.Add(RowStyle(SizeType.Percent, 100.0))
+        self.txt_param_search = TextBox(Dock=DockStyle.Top)
+        self.grp_search = section(self, u'Search', self.txt_param_search)
+        parameters.Controls.Add(self.grp_search, 0, 0)
+        self.lst_param = ListBox(Dock=DockStyle.Fill, IntegralHeight=False, HorizontalScrollbar=True)
+        self.grp_params = section(self, u'Parameters', self.lst_param, fill=True)
+        parameters.Controls.Add(self.grp_params, 0, 1)
+        self.tbl_main.Controls.Add(parameters, 1, 0)
 
-        self.tbl_main.Controls.Add(t0, 0, 0)
+        values_pane = table(rows=2)
+        values_pane.ColumnStyles.Add(ColumnStyle(SizeType.Percent, 100.0))
+        values_pane.RowStyles.Add(RowStyle(SizeType.Percent, 100.0))
+        values_pane.RowStyles.Add(RowStyle(SizeType.AutoSize))
+        self.values = ListView(Dock=DockStyle.Fill, View=View.Details, CheckBoxes=True,
+            FullRowSelect=True, GridLines=False, HideSelection=False)
+        self.values.Columns.Add(ColumnHeader(Text=u'Value', Width=px(self, 180)))
+        self.values.Columns.Add(ColumnHeader(Text=u'Count', Width=px(self, 55)))
+        self.values.Columns.Add(ColumnHeader(Text=u'Color', Width=px(self, 65)))
+        self.grp_values = section(self, u'Value', self.values, fill=True)
+        values_pane.Controls.Add(self.grp_values, 0, 0)
+        checks = flow(self)
+        self.btn_all = button(self, u'Check All')
+        self.btn_none = button(self, u'Uncheck All')
+        checks.Controls.Add(self.btn_all)
+        checks.Controls.Add(self.btn_none)
+        values_pane.Controls.Add(checks, 0, 1)
+        self.tbl_main.Controls.Add(values_pane, 2, 0)
 
-        # ====== COL 1: PARAMETERS ======
-        t1 = TableLayoutPanel(Dock=DockStyle.Fill, ColumnCount=1, RowCount=2)
-        t1.RowStyles.Add(RowStyle(SizeType.AutoSize))
-        t1.RowStyles.Add(RowStyle(SizeType.Percent, 100.0))
+        options_host = Panel(Dock=DockStyle.Fill, AutoScroll=True)
+        options = table(rows=4, autosize=True)
+        options.Dock = DockStyle.Top
+        options.ColumnStyles.Add(ColumnStyle(SizeType.Percent, 100.0))
+        for index in range(4):
+            options.RowStyles.Add(RowStyle(SizeType.AutoSize))
+        options_host.Controls.Add(options)
 
-        self.grp_search = GroupBox(Text=u'Search', Dock=DockStyle.Fill, AutoSize=True)
-        f_search = FlowLayoutPanel(Dock=DockStyle.Fill, AutoSize=True)
-        self.txt_param_search = TextBox(Width=180)
-        f_search.Controls.Add(self.txt_param_search)
-        self.grp_search.Controls.Add(f_search)
-        t1.Controls.Add(self.grp_search, 0, 0)
-
-        self.grp_params = GroupBox(Text=u'Parameters', Dock=DockStyle.Fill)
-        self.lst_param = ListBox(Dock=DockStyle.Fill, IntegralHeight=False)
-        self.grp_params.Controls.Add(self.lst_param)
-        t1.Controls.Add(self.grp_params, 0, 1)
-
-        self.tbl_main.Controls.Add(t1, 1, 0)
-
-        # ====== COL 2: VALUES ======
-        t2 = TableLayoutPanel(Dock=DockStyle.Fill, ColumnCount=1, RowCount=2)
-        t2.RowStyles.Add(RowStyle(SizeType.Percent, 100.0))
-        t2.RowStyles.Add(RowStyle(SizeType.AutoSize))
-
-        self.grp_values = GroupBox(Text=u'Value', Dock=DockStyle.Fill)
-        self.values = ListView(Dock=DockStyle.Fill, View=View.Details, CheckBoxes=True, FullRowSelect=True, GridLines=False, HideSelection=False)
-        self.values.Columns.Add(ColumnHeader(Text=u'Value', Width=200))
-        self.values.Columns.Add(ColumnHeader(Text=u'Count', Width=55))
-        self.values.Columns.Add(ColumnHeader(Text=u'Color', Width=85))
-        self.grp_values.Controls.Add(self.values)
-        t2.Controls.Add(self.grp_values, 0, 0)
-
-        f_chk = FlowLayoutPanel(Dock=DockStyle.Fill, AutoSize=True, WrapContents=False)
-        self.btn_all = Button(Text=u'Check All', AutoSize=True)
-        self.btn_none = Button(Text=u'Uncheck All', AutoSize=True)
-        f_chk.Controls.Add(self.btn_all)
-        f_chk.Controls.Add(self.btn_none)
-        t2.Controls.Add(f_chk, 0, 1)
-
-        self.tbl_main.Controls.Add(t2, 2, 0)
-
-        # ====== COL 3: OPTIONS ======
-        t3 = TableLayoutPanel(Dock=DockStyle.Fill, ColumnCount=1, RowCount=6)
-        t3.AutoScroll = True
-        for i in range(6): t3.RowStyles.Add(RowStyle(SizeType.AutoSize))
-
-        self.grp_palette = GroupBox(Text=u'Color Options', Dock=DockStyle.Fill, AutoSize=True)
-        f_pal = FlowLayoutPanel(Dock=DockStyle.Fill, AutoSize=True, FlowDirection=FlowDirection.TopDown, WrapContents=False)
+        palette = flow(self, vertical=True)
         self.rb_palette1 = RadioButton(Text=u'Palette 1', AutoSize=True, Checked=True)
         self.rb_palette2 = RadioButton(Text=u'Palette 2', AutoSize=True)
         self.rb_palette3 = RadioButton(Text=u'Palette 3', AutoSize=True)
@@ -445,80 +425,70 @@ class ColorFilterForm(Form):
         self.rb_gradient = RadioButton(Text=u'Gradient', AutoSize=True)
         self.rb_single = RadioButton(Text=u'Single Color', AutoSize=True)
         self.rb_nocolor = RadioButton(Text=u'No Color', AutoSize=True)
-        self.btn_refresh_colors = Button(Text=u'Refresh', AutoSize=True)
-        for c in (self.rb_palette1, self.rb_palette2, self.rb_palette3, self.rb_random, self.rb_gradient, self.rb_single, self.rb_nocolor, self.btn_refresh_colors):
-            f_pal.Controls.Add(c)
-        self.grp_palette.Controls.Add(f_pal)
-        t3.Controls.Add(self.grp_palette, 0, 0)
+        self.btn_refresh_colors = button(self, u'Refresh')
+        for item in (self.rb_palette1, self.rb_palette2, self.rb_palette3,
+                     self.rb_random, self.rb_gradient, self.rb_single,
+                     self.rb_nocolor, self.btn_refresh_colors):
+            palette.Controls.Add(item)
+        self.grp_palette = section(self, u'Color Options', palette)
+        options.Controls.Add(self.grp_palette, 0, 0)
 
-        self.grp_graphics = GroupBox(Text=u'Graphic Settings', Dock=DockStyle.Fill, AutoSize=True)
-        f_grp = FlowLayoutPanel(Dock=DockStyle.Fill, AutoSize=True, FlowDirection=FlowDirection.TopDown, WrapContents=False)
+        graphics = flow(self, vertical=True)
         self.cb_surface_fg = CheckBox(Text=u'Surface FG', AutoSize=True, Checked=True)
         self.cb_surface_bg = CheckBox(Text=u'Surface BG', AutoSize=True)
         self.cb_cut_fg = CheckBox(Text=u'Cut FG', AutoSize=True, Checked=True)
         self.cb_cut_bg = CheckBox(Text=u'Cut BG', AutoSize=True)
-        
-        f_cutline = FlowLayoutPanel(AutoSize=True, WrapContents=False, Margin=Padding(0))
         self.cb_cut_line = CheckBox(Text=u'Cut Line', AutoSize=True)
         self.cb_halftone = CheckBox(Text=u'Halftone', AutoSize=True)
-        f_cutline.Controls.Add(self.cb_cut_line)
-        f_cutline.Controls.Add(self.cb_halftone)
-
-        f_trans = FlowLayoutPanel(AutoSize=True, WrapContents=False, Margin=Padding(0))
+        transparency = flow(self)
         self.lbl_trans = Label(Text=u'Trans %', AutoSize=True, Anchor=AnchorStyles.Left)
-        self.num_trans = NumericUpDown(Width=50, Minimum=0, Maximum=100, Value=0)
-        f_trans.Controls.Add(self.lbl_trans)
-        f_trans.Controls.Add(self.num_trans)
+        self.num_trans = NumericUpDown(Width=px(self, 65), Minimum=0, Maximum=100, Value=0)
+        transparency.Controls.Add(self.lbl_trans)
+        transparency.Controls.Add(self.num_trans)
+        for item in (self.cb_surface_fg, self.cb_surface_bg, self.cb_cut_fg,
+                     self.cb_cut_bg, self.cb_cut_line, self.cb_halftone, transparency):
+            graphics.Controls.Add(item)
+        self.grp_graphics = section(self, u'Graphic Settings', graphics)
+        options.Controls.Add(self.grp_graphics, 0, 1)
 
-        for c in (self.cb_surface_fg, self.cb_surface_bg, self.cb_cut_fg, self.cb_cut_bg, f_cutline, f_trans):
-            f_grp.Controls.Add(c)
-        self.grp_graphics.Controls.Add(f_grp)
-        t3.Controls.Add(self.grp_graphics, 0, 1)
-
-        self.grp_filter = GroupBox(Text=u'Filter Settings', Dock=DockStyle.Fill, AutoSize=True)
-        f_fil = FlowLayoutPanel(Dock=DockStyle.Fill, AutoSize=True, FlowDirection=FlowDirection.TopDown, WrapContents=False)
+        filters = flow(self, vertical=True)
         self.cb_custom = CheckBox(Text=u'Custom Name', AutoSize=True)
-        self.txt_custom = TextBox(Width=140, Enabled=False)
-        
-        f_vis = FlowLayoutPanel(AutoSize=True, WrapContents=False, Margin=Padding(0))
+        self.txt_custom = TextBox(Width=px(self, 150), Enabled=False)
         self.cb_template = CheckBox(Text=u'Template', AutoSize=True)
         self.cb_visible = CheckBox(Text=u'Visible', AutoSize=True, Checked=True)
-        f_vis.Controls.Add(self.cb_template)
-        f_vis.Controls.Add(self.cb_visible)
+        self.btn_filters = button(self, u'Create Filters')
+        for item in (self.cb_custom, self.txt_custom, self.cb_template,
+                     self.cb_visible, self.btn_filters):
+            filters.Controls.Add(item)
+        self.grp_filter = section(self, u'Filter Settings', filters)
+        options.Controls.Add(self.grp_filter, 0, 2)
+        self.tbl_main.Controls.Add(options_host, 3, 0)
 
-        self.btn_filters = Button(Text=u'Create Filters', AutoSize=True)
-        for c in (self.cb_custom, self.txt_custom, f_vis, self.btn_filters):
-            f_fil.Controls.Add(c)
-        self.grp_filter.Controls.Add(f_fil)
-        t3.Controls.Add(self.grp_filter, 0, 2)
-
-        self.grp_override = GroupBox(Text=u'Overrides', Dock=DockStyle.Fill, AutoSize=True)
-        f_ovr = FlowLayoutPanel(Dock=DockStyle.Fill, AutoSize=True, WrapContents=False)
-        self.btn_reset_override = Button(Text=u'Reset', AutoSize=True)
-        self.btn_override = Button(Text=u'Apply', AutoSize=True)
-        f_ovr.Controls.Add(self.btn_reset_override)
-        f_ovr.Controls.Add(self.btn_override)
-        self.grp_override.Controls.Add(f_ovr)
-        t3.Controls.Add(self.grp_override, 0, 3)
-
-        self.lbl_status = Label(Text=u'Ready', AutoSize=True, Margin=Padding(4, 10, 4, 10))
-        t3.Controls.Add(self.lbl_status, 0, 4)
-
-        f_act = FlowLayoutPanel(AutoSize=True, WrapContents=False)
-        self.btn_select = Button(Text=u'Select', AutoSize=True)
-        self.btn_close = Button(Text=u'Close', AutoSize=True)
-        f_act.Controls.Add(self.btn_select)
-        f_act.Controls.Add(self.btn_close)
-        t3.Controls.Add(f_act, 0, 5)
-
-        self.tbl_main.Controls.Add(t3, 3, 0)
+        root.Controls.Add(viewport(self, self.tbl_main, 900, 300), 0, 0)
+        self.lbl_status = Label(Text=u'Ready', AutoSize=True, Dock=DockStyle.Top)
+        root.Controls.Add(self.lbl_status, 0, 1)
+        actions = flow(self)
+        self.btn_select = button(self, u'Select')
+        self.btn_reset_override = button(self, u'Reset Overrides')
+        self.btn_override = button(self, u'Apply Overrides')
+        self.btn_close = button(self, u'Close')
+        for item in (self.btn_select, self.btn_reset_override, self.btn_override, self.btn_close):
+            actions.Controls.Add(item)
+        root.Controls.Add(actions, 0, 2)
+        self.CancelButton = self.btn_close
+        self.values.SizeChanged += self._on_resize
         self.Resize += self._on_resize
+        self.Shown += self._on_resize
 
     def _on_resize(self, sender, args):
         try:
-            available = max(100, int(self.values.ClientSize.Width) - 145)
-            self.values.Columns[0].Width = available
-        except Exception: pass
+            self.values.Columns[1].Width = px(self, 55)
+            self.values.Columns[2].Width = px(self, 65)
+            self.values.Columns[0].Width = max(px(self, 100),
+                self.values.ClientSize.Width - px(self, 145))
+            self.lbl_status.MaximumSize = Size(max(1, self.ClientSize.Width - px(self, 20)), 0)
+        except Exception:
+            pass
 
     def _wire(self):
         self.rb_view.CheckedChanged += lambda s, e: self._scope_changed(s)
