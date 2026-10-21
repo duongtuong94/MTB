@@ -1,0 +1,3 @@
+title: "Update Tools"
+tooltip: "Cập nhật BIM Test từ GitHub (origin/main). Yêu cầu Git và thư mục không có thay đổi chưa commit. Sau khi cập nhật, chạy Reload pyRevit."
+author: "BIM Test"
