@@ -1,146 +1,192 @@
 # -*- coding: utf-8 -*-
+from __future__ import unicode_literals
+
 import clr
 clr.AddReference('RevitAPI')
 clr.AddReference('RevitAPIUI')
 
-from Autodesk.Revit.DB import *
-from Autodesk.Revit.UI import *
+from Autodesk.Revit.DB import (
+    BuiltInCategory, XYZ, Line, ViewType, Transaction, SubTransaction, TransactionStatus,
+)
+from Autodesk.Revit.UI import TaskDialog
 from Autodesk.Revit.UI.Selection import ObjectType, ISelectionFilter
 import Autodesk.Revit.Exceptions as Exceptions
+from opening_marks import opening_marks
 
 doc = __revit__.ActiveUIDocument.Document
 uidoc = __revit__.ActiveUIDocument
 view = doc.ActiveView
 
-# SỬA BỘ LỌC: Chỉ cho phép chọn Shaft Opening và Floor Opening
+
+def element_id_value(element_id):
+    try:
+        return int(element_id.Value)
+    except AttributeError:
+        return int(element_id.IntegerValue)
+
+
 class OpeningSelectionFilter(ISelectionFilter):
     def AllowElement(self, element):
-        if not element.Category:
+        if element is None or element.Category is None:
             return False
-        cat_id = element.Category.Id.IntegerValue
-        return cat_id == int(BuiltInCategory.OST_ShaftOpening) or cat_id == int(BuiltInCategory.OST_FloorOpening)
+        return element_id_value(element.Category.Id) in (
+            int(BuiltInCategory.OST_ShaftOpening), int(BuiltInCategory.OST_FloorOpening))
+
     def AllowReference(self, ref, point):
         return False
 
-def auto_draw_all_openings():
-    valid_views = [
-        ViewType.FloorPlan, ViewType.EngineeringPlan, 
-        ViewType.CeilingPlan, ViewType.Detail, 
-        ViewType.Section, ViewType.DraftingView
-    ]
-    
-    if view.ViewType not in valid_views:
-        TaskDialog.Show("Lỗi", "Vui lòng chạy tool trong mặt bằng hoặc chi tiết.")
-        return
 
-    openings = []
-    
-    # 1. ƯU TIÊN OPENING ĐÃ CHỌN TRƯỚC TỪ MÀN HÌNH
-    selected_ids = uidoc.Selection.GetElementIds()
-    for e_id in selected_ids:
-        elem = doc.GetElement(e_id)
-        if elem.Category:
-            cat_id = elem.Category.Id.IntegerValue
-            if cat_id == int(BuiltInCategory.OST_ShaftOpening) or cat_id == int(BuiltInCategory.OST_FloorOpening):
-                openings.append(elem)
-            
-    # 2. NẾU CHƯA CHỌN, YÊU CẦU QUÉT
+def view_frame():
+    origin = view.Origin
+    if view.ViewType in (ViewType.FloorPlan, ViewType.EngineeringPlan, ViewType.CeilingPlan):
+        if view.GenLevel is not None:
+            origin = XYZ(origin.X, origin.Y, view.GenLevel.Elevation)
+    try:
+        if view.SketchPlane is not None:
+            origin = view.SketchPlane.GetPlane().Origin
+    except Exception:
+        pass
+    return origin, view.RightDirection.Normalize(), view.UpDirection.Normalize()
+
+
+def project(point, frame):
+    delta = point.Subtract(frame[0])
+    return (delta.DotProduct(frame[1]), delta.DotProduct(frame[2]))
+
+
+def unproject(point, frame):
+    return frame[0].Add(frame[1].Multiply(point[0])).Add(frame[2].Multiply(point[1]))
+
+
+def boundary_edges(opening, frame):
+    # BoundaryCurves is not defined for rectangular-boundary Openings.
+    if opening.IsRectBoundary:
+        rectangle = list(opening.BoundaryRect)
+        if len(rectangle) != 2:
+            raise ValueError('Invalid BoundaryRect')
+        low, high = rectangle
+        vertices = [XYZ(low.X, low.Y, low.Z), XYZ(high.X, low.Y, low.Z),
+                    XYZ(high.X, high.Y, high.Z), XYZ(low.X, high.Y, high.Z)]
+        points = [project(p, frame) for p in vertices]
+        return [{'points': [points[i], points[(i + 1) % 4]], 'linear': True}
+                for i in range(4)]
+    curves = opening.BoundaryCurves
+    if curves is None or curves.Size == 0:
+        raise ValueError('No boundary curves')
+    result = []
+    for curve in curves:
+        points = [project(p, frame) for p in curve.Tessellate()]
+        closed = bool(curve.IsCyclic and not curve.IsBound)
+        result.append({'points': points, 'linear': isinstance(curve, Line), 'closed': closed})
+    return result
+
+
+def draw_x(mark, frame):
+    # Both diagonals belong to one subtransaction: failure leaves no half-X.
+    sub = SubTransaction(doc)
+    sub.Start()
+    try:
+        for a, b in mark:
+            doc.Create.NewDetailCurve(view, Line.CreateBound(unproject(a, frame), unproject(b, frame)))
+        if sub.Commit() != TransactionStatus.Committed:
+            raise ValueError('Revit rejected detail curves')
+    except Exception:
+        if sub.GetStatus() == TransactionStatus.Started:
+            sub.RollBack()
+        raise
+    finally:
+        sub.Dispose()
+
+
+ERROR_LABELS = {
+    'invalid_edge': u'Cạnh không có hình học hợp lệ',
+    'open_or_branched': u'Đường bao hở, trùng cạnh hoặc nhiều nhánh',
+    'degenerate': u'Đường bao suy biến trên mặt phẳng view',
+    'self_intersection_or_zero_area': u'Đường bao tự giao hoặc diện tích bằng 0',
+    'touching_or_crossing_loops': u'Các đường bao chạm nhau hoặc giao nhau',
+    'ambiguous_nesting': u'Không xác định được quan hệ vùng đặc/lỗ mở',
+    'opening_contains_solid_island': u'Lỗ có vùng đặc bên trong: bỏ qua để không vẽ X xuyên vùng đặc',
+    'too_small': u'Lỗ quá nhỏ để tạo đủ hai đường chéo',
+}
+
+
+def auto_draw_all_openings():
+    valid_views = (ViewType.FloorPlan, ViewType.EngineeringPlan, ViewType.CeilingPlan,
+                   ViewType.Detail, ViewType.Section, ViewType.DraftingView)
+    if view.ViewType not in valid_views:
+        TaskDialog.Show(u'BIM Test | X Opening', u'Vui lòng chạy tool trong mặt bằng hoặc chi tiết.')
+        return
+    selection_filter = OpeningSelectionFilter()
+    openings = [doc.GetElement(eid) for eid in uidoc.Selection.GetElementIds()]
+    openings = [op for op in openings if selection_filter.AllowElement(op)]
     if not openings:
         try:
-            refs = uidoc.Selection.PickObjects(ObjectType.Element, OpeningSelectionFilter(), "Quét chọn Opening (Shaft/Floor), SAU ĐÓ BẤM NÚT 'FINISH' (GÓC TRÊN TRÁI)")
-            for ref in refs:
-                openings.append(doc.GetElement(ref))
+            refs = uidoc.Selection.PickObjects(
+                ObjectType.Element, selection_filter,
+                u'Chọn Opening (Shaft/Floor), sau đó bấm FINISH. Mỗi vòng kín sẽ được xử lý riêng.')
+            openings = [doc.GetElement(ref) for ref in refs]
         except Exceptions.OperationCanceledException:
             return
-            
+    unique = {}
+    for op in openings:
+        unique[element_id_value(op.Id)] = op
+    openings = list(unique.values())
     if not openings:
         return
 
-    view_z = view.Origin.Z
-    if view.GenLevel:
-        view_z = view.GenLevel.Elevation
-
-    t = Transaction(doc, "Detail Lines")
-    t.Start()
-    
-    drawn_count = 0
-    error_count = 0
-
+    frame = view_frame()
+    minimum_length = doc.Application.ShortCurveTolerance
+    prepared, warnings = [], []
+    skipped = 0
+    islands = 0
     for op in openings:
-        # Lấy trực tiếp đường viền của lỗ mở thay vì bóc tách mặt sàn
-        if not hasattr(op, "BoundaryCurves") or not op.BoundaryCurves:
-            # Phương án dự phòng nếu API không hỗ trợ lấy Boundary cho loại Opening này
-            bbox = op.get_BoundingBox(view)
-            if not bbox: bbox = op.get_BoundingBox(None)
-            if bbox:
-                pt_a = XYZ(bbox.Min.X, bbox.Min.Y, view_z)
-                pt_b = XYZ(bbox.Max.X, bbox.Max.Y, view_z)
-                pt_c = XYZ(bbox.Min.X, bbox.Max.Y, view_z)
-                pt_d = XYZ(bbox.Max.X, bbox.Min.Y, view_z)
-                try:
-                    doc.Create.NewDetailCurve(view, Line.CreateBound(pt_a, pt_b))
-                    doc.Create.NewDetailCurve(view, Line.CreateBound(pt_c, pt_d))
-                    drawn_count += 1
-                except:
-                    error_count += 1
-            continue
-
-        curves = op.BoundaryCurves
-        if curves.Size == 0:
-            continue
-            
-        pts = []
-        is_all_lines = True
-        
-        for c in curves:
-            if not isinstance(c, Line):
-                is_all_lines = False
-            for p in c.Tessellate()[:-1]:
-                pts.append(p)
-                
-        if not pts:
-            continue
-            
-        xs = [p.X for p in pts]
-        ys = [p.Y for p in pts]
-        min_x, max_x = min(xs), max(xs)
-        min_y, max_y = min(ys), max(ys)
-        
-        # Ưu tiên vẽ X nối 4 góc cho Lỗ tứ giác (Chữ nhật, vuông, hình thang)
-        if curves.Size == 4 and is_all_lines:
-            p0 = curves[0].GetEndPoint(0)
-            p1 = curves[1].GetEndPoint(0)
-            p2 = curves[2].GetEndPoint(0)
-            p3 = curves[3].GetEndPoint(0)
-            
-            pt_a = XYZ(p0.X, p0.Y, view_z)
-            pt_b = XYZ(p2.X, p2.Y, view_z) # Đường chéo 1
-            pt_c = XYZ(p1.X, p1.Y, view_z)
-            pt_d = XYZ(p3.X, p3.Y, view_z) # Đường chéo 2
-        
-        # Dùng Bounding Box cho các lỗ hình tròn hoặc hình dạng phức tạp
-        else:
-            pt_a = XYZ(min_x, min_y, view_z)
-            pt_b = XYZ(max_x, max_y, view_z)
-            pt_c = XYZ(min_x, max_y, view_z)
-            pt_d = XYZ(max_x, min_y, view_z)
-        
+        op_id = element_id_value(op.Id)
         try:
-            if pt_a.DistanceTo(pt_b) > 0.01:
-                doc.Create.NewDetailCurve(view, Line.CreateBound(pt_a, pt_b))
-            if pt_c.DistanceTo(pt_d) > 0.01:
-                doc.Create.NewDetailCurve(view, Line.CreateBound(pt_c, pt_d))
-            drawn_count += 1
-        except:
-            error_count += 1
+            result = opening_marks(boundary_edges(op, frame),
+                                   tolerance=max(1e-6, minimum_length * 0.001),
+                                   minimum_length=minimum_length)
+            prepared.extend((op_id, mark) for mark in result['marks'])
+            islands += result['islands']
+            skipped += len(result['errors'])
+            warnings.extend(u'Opening {0}: {1}'.format(op_id, ERROR_LABELS[reason])
+                            for reason in result['errors'])
+        except Exception as error:
+            skipped += 1
+            warnings.append(u'Opening {0}: không đọc được đường bao ({1})'.format(op_id, error))
 
-    t.Commit()
-    
-    if drawn_count > 0:
-        TaskDialog.Show("Thành công", "Đã tự động vẽ X cho {} lỗ mở!".format(drawn_count))
-    elif error_count > 0:
-        TaskDialog.Show("Lỗi", "Đã tìm thấy lỗ mở nhưng không thể vẽ (Lỗi do cao độ mặt phẳng View).")
-    else:
-        TaskDialog.Show("Thông báo", "Không tìm thấy đường bao của lỗ mở nào.")
+    drawn_count = 0
+    if prepared:
+        transaction = Transaction(doc, 'X lines for Opening contours')
+        transaction.Start()
+        try:
+            for op_id, mark in prepared:
+                try:
+                    draw_x(mark, frame)
+                    drawn_count += 1
+                except Exception as error:
+                    skipped += 1
+                    warnings.append(u'Opening {0}: không tạo được X ({1})'.format(op_id, error))
+            if transaction.Commit() != TransactionStatus.Committed:
+                raise ValueError('Revit rejected transaction')
+        except Exception as error:
+            if transaction.GetStatus() == TransactionStatus.Started:
+                transaction.RollBack()
+            TaskDialog.Show(u'BIM Test | X Opening',
+                            u'Không lưu được các đường X.\n\n{0}'.format(error))
+            return
+        finally:
+            transaction.Dispose()
 
-auto_draw_all_openings()
+    message = u'Đã xử lý {0} Opening, vẽ X cho {1} lỗ.\nBỏ qua {2} nhóm/cạnh đường bao lỗi.'.format(
+        len(openings), drawn_count, skipped)
+    if islands:
+        message += u'\nKhông đánh X cho {0} vùng đặc lồng bên trong.'.format(islands)
+    if warnings:
+        message += u'\n\n' + u'\n'.join(warnings[:10])
+        if len(warnings) > 10:
+            message += u'\n... và {0} cảnh báo khác.'.format(len(warnings) - 10)
+    TaskDialog.Show(u'BIM Test | X Opening', message)
+
+
+if __name__ == '__main__':
+    auto_draw_all_openings()

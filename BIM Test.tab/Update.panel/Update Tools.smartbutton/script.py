@@ -40,7 +40,7 @@ def main():
         script.get_logger().exception('Could not refresh update icon')
     if result['release'] is None:
         message = (u'Chưa có bản phát hành BIM Test.\n\n'
-                   u'Update Tools chỉ nhận tag phiên bản vX.Y.Z. Push code lên main không phát hành bản cập nhật.')
+                   u'Update Tools chỉ nhận tag phiên bản vX.Y.Z')
     elif result['changed']:
         message = (u'Đã cập nhật BIM Test {2}: {0} → {1}.\n\n'
                    u'Chạy pyRevit > Reload để nạp giao diện và code mới.').format(

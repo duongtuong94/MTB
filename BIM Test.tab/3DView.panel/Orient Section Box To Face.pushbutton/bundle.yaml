@@ -1,5 +1,8 @@
 title:
   en_us: Orient Section Box To Face
-tooltip:
-  en_us: Aligns Section Box của view 3D hiện tại tới một mặt phẳng
-author: "BIM Test"
+tooltip: |-
+  VI: Trong view 3D có Section Box đang bật, chọn một mặt để xoay Section Box theo hướng mặt đó.
+
+  EN: In a 3D view with an active Section Box, pick a face to rotate the Section Box to its
+  orientation.
+

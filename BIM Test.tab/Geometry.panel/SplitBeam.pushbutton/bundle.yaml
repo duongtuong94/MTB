@@ -1,3 +1,10 @@
 title: SplitBeam
-tooltip: 
-author: "BIM Test"
+tooltip: |-
+  VI: Chọn một dầm chính thẳng rồi lần lượt chọn các dầm cắt; bấm Esc để kết thúc chọn và thực
+  hiện. Chia dầm tại giao điểm chiếu XY, cho phép Join hai đầu và đặt Join Cutback hai đầu mỗi
+  đoạn thành 1.0 feet (304.8 mm).
+
+  EN: Pick a straight main beam, then pick intersecting beams one by one; press Esc to finish
+  selection and run. Splits at XY-projected intersections, allows joins at both ends, and sets
+  each segment's end Join Cutbacks to 1.0 feet (304.8 mm).
+

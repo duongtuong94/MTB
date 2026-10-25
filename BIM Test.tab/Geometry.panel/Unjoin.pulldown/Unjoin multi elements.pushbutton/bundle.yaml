@@ -1,0 +1,8 @@
+title: "Unjoin Selected"
+tooltip: |-
+  VI: Chọn trước các phần tử cần xử lý. Bỏ Join Geometry giữa những cặp nằm trong vùng chọn; giữ
+  nguyên liên kết với các phần tử ngoài vùng chọn.
+
+  EN: Preselect the elements to process. Removes Join Geometry relationships between selected
+  pairs only, preserving joins to unselected elements.
+

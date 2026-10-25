@@ -1,0 +1,6 @@
+title: "Unjoin 2 Elements"
+tooltip: |-
+  VI: Chọn trước đúng hai phần tử đang Join Geometry rồi chạy tool để bỏ liên kết Join giữa chúng.
+
+  EN: Preselect exactly two elements joined by Join Geometry, then run to unjoin that pair.
+

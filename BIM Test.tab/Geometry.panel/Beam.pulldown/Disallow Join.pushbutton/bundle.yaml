@@ -1,5 +1,9 @@
 title:   
   en_us: DisAllow Join Beam
-tooltip:
-  en_us: Chọn dầm cần DisAllow Join => Click vào tool
-author: "BIM Test"
+tooltip: |-
+  VI: Chọn trước các dầm rồi chạy tool để không cho phép Join tại cả đầu Start và End. Phần tử
+  không hỗ trợ thao tác sẽ được bỏ qua.
+
+  EN: Preselect beams, then run to disallow joins at both the Start and End. Elements that do not
+  support the operation are skipped.
+

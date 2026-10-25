@@ -1,0 +1,7 @@
+title: "Quick Crop"
+tooltip: |-
+  VI: Quét một vùng chữ nhật để đặt Crop Box cho view hiện tại với khoảng đệm 500 mm. Tool bật và
+  hiện Crop Box, sau đó Zoom to Fit. Chỉ dùng trong view hỗ trợ crop.
+
+  EN: Draw a rectangle to set the active view's Crop Box with a 500 mm margin. Enables and shows
+  the Crop Box, then zooms to fit. Use a view that supports cropping.

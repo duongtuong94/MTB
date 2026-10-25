@@ -1,3 +1,8 @@
 title: "Color Filter"
-tooltip: "Tạo View Filter, tô màu trực tiếp hoặc chọn phần tử theo Category, Parameter và Value."
-author: "BIM Test"
+tooltip: |-
+  VI: Chọn phạm vi Active View hoặc Project, Category, Parameter và các Value cần xử lý. Tô màu
+  bằng Graphic Overrides, tạo View Filters hoặc chọn các phần tử tương ứng.
+
+  EN: Choose Active View or Project scope, a Category, a Parameter, and the Values to process.
+  Apply colored Graphic Overrides, create View Filters, or select the matching elements.
+

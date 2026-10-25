@@ -1,3 +1,8 @@
 title: Join Geometry
-tooltip: Tự động Join Geometry theo nhiều cặp Category, hỗ trợ Current Selection hoặc Current View và ép đúng thứ tự cắt.
-author: "BIM Test"
+tooltip: |-
+  VI: Join Geometry theo các cặp Category và thứ tự ưu tiên trong vùng chọn hoặc view hiện tại. Có
+  thể đảo từng cặp để điều chỉnh thứ tự cắt.
+
+  EN: Join geometry using Category pairs and their priority order within the current selection or
+  active view. Reverse individual pairs to control the cutting order.
+

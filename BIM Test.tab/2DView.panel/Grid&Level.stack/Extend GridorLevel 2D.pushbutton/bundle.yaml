@@ -1,6 +1,8 @@
 title: Extend Grid Ends 2D
-tooltip: >-
-  Drag one rectangle to select only Grids, then click one target point. The
-  nearest end of each Grid is switched to 2D and extended outward to that
-  alignment. No Finish button is required.
-author: "BIM Test"
+tooltip: |-
+  VI: Quét chọn Grid/Level rồi click điểm đích. Đầu trục phía được click chuyển sang 2D và kéo dài
+  hoặc rút ngắn tới vị trí dóng; giữ nguyên đầu còn lại. Không cần bấm Finish.
+
+  EN: Rectangle-select Grids/Levels, then click a target point. The end on the clicked side
+  switches to 2D and extends or shortens to the alignment, preserving the opposite end. No Finish
+  step is needed.

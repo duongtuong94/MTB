@@ -1,3 +1,8 @@
 title: "Update Tools"
-tooltip: "Cập nhật bản phát hành BIM Test mới nhất theo tag vX.Y.Z trên GitHub. Push code lên main không báo cập nhật. Sau khi cập nhật, chạy Reload pyRevit."
-author: "BIM Test"
+tooltip: |-
+  VI: Kiểm tra và nhận bản phát hành ổn định mới nhất theo tag vX.Y.Z trên GitHub; Dùng icon_hasupdates khi có bản mới. Sau khi cập nhật, chạy Reload
+  pyRevit. Dừng nếu cần ghi đè thay đổi local hoặc hợp nhất lịch sử Git.
+
+  EN: Check for and install the latest stable GitHub release tagged vX.Y.Z; Uses icon_hasupdates when a release is available. Reload pyRevit
+  after updating. Stops if local changes would need overwriting or Git history would need merging.
+

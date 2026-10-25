@@ -1,0 +1,9 @@
+title: "Align Tag"
+tooltip: |-
+  VI: Chọn trước các Tag cần căn, kèm một đường thẳng tham chiếu hoặc chọn đường khi được yêu cầu.
+  Căn Tag dọc theo hướng dầm nếu có, nếu không thì chiếu vuông góc tới đường tham chiếu. Lưu ý:
+  đường tham chiếu sẽ bị xóa sau khi căn.
+
+  EN: Preselect Tags and optionally a straight reference line, or pick the line when prompted.
+  Aligns Tags along their beam direction when available; otherwise projects them perpendicularly
+  onto the reference line. Note: the reference line is deleted after alignment.

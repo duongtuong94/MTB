@@ -1,5 +1,7 @@
 title: Toggle Grid Bubbles
-tooltip: >-
-  Drag one rectangle to select only Grids, then click near the side whose
-  bubbles should be toggled. No Finish button is required.
-author: "BIM Test"
+tooltip: |-
+  VI: Quét chọn Grid/Level rồi click gần phía đầu cần đổi trạng thái. Bật hoặc tắt bubble tại đầu
+  gần điểm click trong view hiện tại. Không cần bấm Finish.
+
+  EN: Rectangle-select Grids/Levels, then click near the desired end. Toggles the bubble at the
+  end nearest the clicked point in the active view. No Finish step is needed.

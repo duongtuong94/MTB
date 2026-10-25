@@ -1,4 +1,8 @@
 title: ToggleLeader
-tooltip: >-
-  Turn on/off leader line
-author: "BIM Test"
+tooltip: |-
+  VI: Bật hoặc tắt Leader của Tag, Room/Area Tag và Spot Dimension được hỗ trợ. Chọn trước phần tử
+  hoặc chọn khi được yêu cầu rồi bấm Finish.
+
+  EN: Toggles leaders on supported Tags, Room/Area Tags, and Spot Dimensions. Preselect elements,
+  or select them when prompted and click Finish.
+

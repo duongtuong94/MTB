@@ -1,3 +1,10 @@
 title: "Copy Filters"
-tooltip: "Sao chép View Filters, Graphic Overrides, Visibility và Enabled state từ View nguồn sang nhiều View/View Template."
-author: "BIM Test"
+tooltip: |-
+  VI: Sao chép View Filters từ view hiện tại sang các View/View Template đã chọn, gồm Graphic
+  Overrides, Visibility và Enabled state nếu API hỗ trợ. Có thể chọn danh sách view đang mở hoặc
+  toàn bộ view phù hợp.
+
+  EN: Copy View Filters from the active view to selected Views/View Templates, including Graphic
+  Overrides, Visibility, and Enabled state where supported by the API. Choose from open views or
+  all compatible views.
+

@@ -20,4 +20,7 @@ Thumbs.db
 
 # Local development instructions; never publish with this repository.
 /Rule.md
+/AGENTS.md
+/MTB-private/
+/Test.tab/
 

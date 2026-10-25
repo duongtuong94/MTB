@@ -1,4 +1,9 @@
 title: XLineOpeningShaft
-tooltip: >-
-  X
-author: "BIM Test"
+tooltip: |-
+  VI: Chọn Shaft/Floor Opening để vẽ Detail Lines hình X riêng cho từng vòng kín rời nhau. Bỏ qua
+  và báo đường bao lỗi hoặc lỗ chứa vùng đặc bên trong. Chạy lại có thể tạo thêm đường trùng.
+
+  EN: Select Shaft/Floor Openings to draw a separate X using Detail Lines for each disjoint closed
+  loop. Reports and skips invalid boundaries or openings containing solid islands. Running again
+  may create duplicate lines.
+
