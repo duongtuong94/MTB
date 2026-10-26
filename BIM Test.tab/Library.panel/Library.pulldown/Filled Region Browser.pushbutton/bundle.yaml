@@ -1,0 +1,14 @@
+title: "Filled Region\nBrowser"
+tooltip: |-
+  VI: Xem gallery các Filled Region Type trong Project, tìm theo tên và xem mẫu
+  foreground/background. Draw Region mở Sketch để tự vẽ đường bao. Duplicate
+  tạo Type mới từ Type đang chọn. Nhấp đúp hoặc Edit Type yêu cầu mở Type Properties
+  gốc khi Revit cho phép; chỉnh Type ảnh hưởng mọi Region dùng Type đó.
+  Preview là hình minh họa, không tạo phần tử mẫu trong model. Bản thử nghiệm nội bộ.
+
+  EN: Browse project filled region types with foreground/background swatches.
+  Draw Region starts native Revit sketching. Duplicate copies the selected type.
+  Double-click or Edit Type requests native Type Properties when supported by the
+  current Revit selection context. Editing a type affects all regions using it.
+  Previews are illustrative and create no sample model elements. Internal preview.
+context: doc-project

@@ -1,0 +1,13 @@
+title: "Family Browser"
+tooltip: |-
+  VI: Xem Loadable Families trong Project hoặc thư mục RFA bằng thumbnail và
+  Category của Revit. Mỗi thẻ là một Type. Lọc Model, Detail, Annotation, Profile.
+  Profile và các loại không đặt trực tiếp chỉ hỗ trợ nạp. Không lưu file RFA
+  khi đọc thư viện; chỉ nạp hoặc đặt khi bạn yêu cầu. Bản thử nghiệm nội bộ.
+
+  EN: Browse loadable families in the project or an RFA folder using thumbnails
+  and Revit categories. Each card represents one type. Filter Model, Detail,
+  Annotation and Profile. Profiles and non-placeable categories support loading only.
+  Browsing never saves source RFA files. Loading and placement require explicit
+  action. Internal experimental build.
+context: doc-project
