@@ -1,7 +1,9 @@
 title: "Quick Crop"
 tooltip: |-
-  VI: Quét một vùng chữ nhật để đặt Crop Box cho view hiện tại với khoảng đệm 500 mm. Tool bật và
-  hiện Crop Box, sau đó Zoom to Fit. Chỉ dùng trong view hỗ trợ crop.
+  VI: Quét vùng chữ nhật để crop Plan / Section / Elevation, kể cả view xoay, với khoảng đệm
+  500 mm. Giữ chiều sâu crop hiện tại, bật và hiện Crop Box rồi Zoom to Fit. Crop phác thảo
+  được đổi thành chữ nhật. Cần Scope Box = None; chưa hỗ trợ Split Crop.
 
-  EN: Draw a rectangle to set the active view's Crop Box with a 500 mm margin. Enables and shows
-  the Crop Box, then zooms to fit. Use a view that supports cropping.
+  EN: Draw a rectangle to crop a plan, section or elevation, including rotated views, with
+  a 500 mm margin. Preserves crop depth, enables and shows the Crop Box, then zooms to fit.
+  Replaces a sketched crop with a rectangle. Requires Scope Box = None; split crops are unsupported.
