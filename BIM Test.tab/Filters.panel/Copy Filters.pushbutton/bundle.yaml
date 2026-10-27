@@ -3,8 +3,12 @@ tooltip: |-
   VI: Sao chép View Filters từ view hiện tại sang các View/View Template đã chọn, gồm Graphic
   Overrides, Visibility và Enabled state nếu API hỗ trợ. Có thể chọn danh sách view đang mở hoặc
   toàn bộ view phù hợp.
+  Nếu V/G Filters do template quản lý, copy vào template đó và hỏi xác nhận vì các view
+  dùng chung template cũng có thể bị ảnh hưởng. Giữ nguyên template đang gán.
 
   EN: Copy View Filters from the active view to selected Views/View Templates, including Graphic
   Overrides, Visibility, and Enabled state where supported by the API. Choose from open views or
   all compatible views.
+  When a template controls V/G Filters, copy to that template after confirmation because
+  other views sharing it may also be affected. Template assignments are preserved.
 

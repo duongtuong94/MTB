@@ -14,7 +14,7 @@ from System.Drawing import Point, Size, Font, FontStyle, SystemColors
 from System.Windows.Forms import (
     Form, CheckedListBox, Label, Button, GroupBox, RadioButton,
     FormBorderStyle, FormStartPosition, DialogResult, MessageBox,
-    MessageBoxButtons, MessageBoxIcon
+    MessageBoxButtons, MessageBoxIcon, MessageBoxDefaultButton
 )
 
 from pyrevit import revit, DB
@@ -28,6 +28,68 @@ uidoc = revit.uidoc
 source_view = doc.ActiveView
 
 
+def filter_owner(view):
+    """The template owns Filters only when V/G Overrides Filters is included."""
+    if view.IsTemplate or eid_value(view.ViewTemplateId) < 0:
+        return view
+    template = doc.GetElement(view.ViewTemplateId)
+    if template is None or not template.IsTemplate:
+        raise ValueError('The assigned view template could not be resolved.')
+    filters_parameter = int(DB.BuiltInParameter.VIS_GRAPHICS_FILTERS)
+    eligible = set(eid_value(x) for x in template.GetTemplateParameterIds())
+    excluded = set(eid_value(x) for x in template.GetNonControlledTemplateParameterIds())
+    return template if filters_parameter in eligible and filters_parameter not in excluded else view
+
+
+def destination_display_name(view):
+    owner = filter_owner(view)
+    result = view_display_name(view)
+    if eid_value(owner.Id) != eid_value(view.Id):
+        result += u'  [Filters -> {0}]'.format(owner.Name)
+    return result
+
+
+def plan_filter_targets(views, source):
+    targets, seen, skipped = [], set(), []
+    for view in views:
+        try:
+            owner = filter_owner(view)
+            identifier = eid_value(owner.Id)
+            if identifier == eid_value(source.Id):
+                skipped.append(u'{0}: same filter source; unchanged.'.format(view.Name))
+            elif identifier not in seen:
+                seen.add(identifier)
+                targets.append(owner)
+        except Exception as error:
+            skipped.append(u'{0}: {1}'.format(view.Name, error))
+    return targets, skipped
+
+
+def copy_filter_settings(source, target, filter_id):
+    """Caller owns the main Transaction; each filter is all-or-nothing."""
+    overrides = source.GetFilterOverrides(filter_id)
+    visible = source.GetFilterVisibility(filter_id)
+    enabled = source.GetIsFilterEnabled(filter_id) if hasattr(source, 'GetIsFilterEnabled') else None
+    transaction = DB.SubTransaction(doc)
+    try:
+        if transaction.Start() != DB.TransactionStatus.Started:
+            raise ValueError('Could not start a filter copy.')
+        if eid_value(filter_id) not in set(eid_value(x) for x in target.GetFilters()):
+            target.AddFilter(filter_id)
+        target.SetFilterOverrides(filter_id, overrides)
+        target.SetFilterVisibility(filter_id, visible)
+        if enabled is not None and hasattr(target, 'SetIsFilterEnabled'):
+            target.SetIsFilterEnabled(filter_id, enabled)
+        if transaction.Commit() != DB.TransactionStatus.Committed:
+            raise ValueError('Revit did not commit the filter settings.')
+    except Exception:
+        if transaction.GetStatus() == DB.TransactionStatus.Started:
+            transaction.RollBack()
+        raise
+    finally:
+        transaction.Dispose()
+
+
 class CopyFiltersForm(Form):
     def __init__(self):
         Form.__init__(self)
@@ -37,6 +99,7 @@ class CopyFiltersForm(Form):
         self.all_views = []
         self.open_views = []
         self.current_views = []
+        self.source_filter_view = source_view
 
         self.filters_list = CheckedListBox()
         self.filters_list.CheckOnClick = True
@@ -124,9 +187,18 @@ class CopyFiltersForm(Form):
 
     def load_data(self):
         try:
-            ordered = list(source_view.GetOrderedFilters())
-        except Exception:
-            ordered = list(source_view.GetFilters())
+            self.source_filter_view = filter_owner(source_view)
+            try:
+                ordered = list(self.source_filter_view.GetOrderedFilters())
+            except Exception:
+                ordered = list(self.source_filter_view.GetFilters())
+        except Exception as error:
+            self.copy_button.Enabled = False
+            self.status.Text = u'Could not read source filters: {0}'.format(error)
+            return
+        if eid_value(self.source_filter_view.Id) != eid_value(source_view.Id):
+            self.status.Text = u'Source: {0}\nFilters from template: {1}'.format(
+                source_view.Name, self.source_filter_view.Name)
 
         self.filter_ids = []
         self.filters_list.Items.Clear()
@@ -165,7 +237,10 @@ class CopyFiltersForm(Form):
         self.current_views = self.open_views if self.open_radio.Checked else self.all_views
         self.views_list.Items.Clear()
         for view in self.current_views:
-            self.views_list.Items.Add(view_display_name(view))
+            try:
+                self.views_list.Items.Add(destination_display_name(view))
+            except Exception:
+                self.views_list.Items.Add(view_display_name(view))
 
     def view_scope_changed(self, sender, args):
         if sender.Checked:
@@ -186,36 +261,39 @@ class CopyFiltersForm(Form):
                             MessageBoxButtons.OK, MessageBoxIcon.Warning)
             return
 
+        targets, skipped = plan_filter_targets(selected_views, self.source_filter_view)
+        templates = [target for target in targets if target.IsTemplate]
+        if templates:
+            warning = (u'The following shared view templates will be updated:\n{0}\n\n'
+                       u'All views using their controlled Filters may be affected, including unselected views.\n'
+                       u'Template assignments and Include settings will not be changed.\n\nContinue?').format(
+                           u'\n'.join(u'- ' + template.Name for template in templates))
+            if MessageBox.Show(warning, u'Copy Filters - Shared Templates', MessageBoxButtons.YesNo,
+                               MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes:
+                return
         copied = 0
-        skipped = []
         try:
-            with revit.Transaction(u'Copy Filters'):
-                for target in selected_views:
-                    for filter_id in selected_filter_ids:
-                        try:
-                            existing = [eid_value(x) for x in target.GetFilters()]
-                            if eid_value(filter_id) not in existing:
-                                target.AddFilter(filter_id)
-                            target.SetFilterOverrides(filter_id, source_view.GetFilterOverrides(filter_id))
-                            target.SetFilterVisibility(filter_id, source_view.GetFilterVisibility(filter_id))
+            if targets:
+                with revit.Transaction(u'Copy Filters'):
+                    for target in targets:
+                        for filter_id in selected_filter_ids:
                             try:
-                                target.SetIsFilterEnabled(filter_id, source_view.GetIsFilterEnabled(filter_id))
-                            except Exception:
-                                pass
-                            copied += 1
-                        except Exception as ex:
-                            filter_element = doc.GetElement(filter_id)
-                            skipped.append(u'{0} / {1}: {2}'.format(
-                                target.Name,
-                                filter_element.Name if filter_element else eid_value(filter_id),
-                                unicode(ex)
-                            ))
+                                copy_filter_settings(self.source_filter_view, target, filter_id)
+                                copied += 1
+                            except Exception as ex:
+                                filter_element = doc.GetElement(filter_id)
+                                skipped.append(u'{0} / {1}: {2}'.format(
+                                    target.Name,
+                                    filter_element.Name if filter_element else eid_value(filter_id),
+                                    unicode(ex)
+                                ))
         except Exception as ex:
             MessageBox.Show(unicode(ex), u'Copy Filters Error',
                             MessageBoxButtons.OK, MessageBoxIcon.Error)
             return
 
-        message = u'Copied {0} filter settings to {1} views.'.format(copied, len(selected_views))
+        message = u'Copied {0} filter settings to {1} view/template targets ({2} selected views).'.format(
+            copied, len(targets), len(selected_views))
         if skipped:
             message += u'\n\nSkipped: {0}\n{1}'.format(len(skipped), u'\n'.join(skipped[:8]))
         MessageBox.Show(message, u'Copy Filters', MessageBoxButtons.OK,

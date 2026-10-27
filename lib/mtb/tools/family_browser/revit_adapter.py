@@ -177,7 +177,7 @@ class RevitLibrary(object):
 
     def _prepare_preview_visibility(self, document, view, row):
         """Call after CurrentType evaluation, before exporting the chosen view."""
-        if not document.IsFamilyDocument or document == self.doc:
+        if document == self.doc or not document.IsFamilyDocument:
             raise ValueError('Preview Visibility may only be changed in an isolated family document.')
         transaction = DB.Transaction(document, 'Temporary type preview visibility')
         try:
@@ -186,6 +186,7 @@ class RevitLibrary(object):
                 row['preview_detail'] = 'Preview Visibility On is unavailable for this family view; no mixed-type image was used.'
                 transaction.RollBack()
                 return False
+            self._uncrop_preview_view(document, view)
             document.Regenerate()
             if transaction.Commit() != DB.TransactionStatus.Committed:
                 raise ValueError('Could not commit Preview Visibility On.')
@@ -197,12 +198,38 @@ class RevitLibrary(object):
         finally:
             transaction.Dispose()
 
+    def _uncrop_preview_view(self, document, view):
+        """Full extents in an OWNED temporary family; caller owns transaction.
+
+        FitToPage alone fits the current crop, not all family geometry.
+        Never alter the user's project views or the source family document.
+        """
+        if document == self.doc or not document.IsFamilyDocument:
+            raise ValueError('Preview framing requires an isolated family document.')
+        if view.CropBoxActive:
+            view.CropBoxActive = False
+            if view.CropBoxActive:
+                raise ValueError('Could not disable the temporary view crop.')
+        if str(view.ViewType) == 'ThreeD' and view.IsSectionBoxActive:
+            view.IsSectionBoxActive = False
+            if view.IsSectionBoxActive:
+                raise ValueError('Could not disable the temporary section box.')
+        for parameter_id in (DB.BuiltInParameter.VIEWER_ANNOTATION_CROP_ACTIVE,
+                             DB.BuiltInParameter.VIEWER_BOUND_FAR_CLIPPING):
+            parameter = view.get_Parameter(parameter_id)
+            if parameter is not None and parameter.AsInteger() != 0:
+                if parameter.IsReadOnly:
+                    raise ValueError('A temporary view clipping setting is read-only.')
+                parameter.Set(0)
+                if parameter.AsInteger() != 0:
+                    raise ValueError('Could not clear temporary view clipping.')
+
     def _export_preview(self, document, row, destination):
         # Some family views cannot be printed but can still be exported. Try
         # several existing views, rejecting blank output instead of stopping at one.
         views = [v for v in DB.FilteredElementCollector(document).OfClass(DB.View)
                  if not v.IsTemplate and str(v.ViewType) in
-                 ('ThreeD', 'FloorPlan', 'CeilingPlan', 'Elevation', 'Section', 'DraftingView', 'Detail')]
+                 ('ThreeD', 'FloorPlan', 'EngineeringPlan', 'CeilingPlan', 'Elevation', 'Section', 'DraftingView', 'Detail')]
         prefer_3d = row['group'] == 'Model'
         views.sort(key=lambda v: (str(v.ViewType) != ('ThreeD' if prefer_3d else 'FloorPlan'), element_name(v)))
         if not views:
@@ -259,6 +286,14 @@ class RevitLibrary(object):
         This is labelled a geometry preview, not a rendered/annotation-exact view.
         Reference planes, dimensions and construction constraints are excluded.
         """
+        if not document.IsFamilyDocument or document == self.doc:
+            raise ValueError('Geometry previews require an isolated family document.')
+        # This direct path is complete for native profile curves, not for model
+        # solids, nested families or Labels. Keep other multi-type groups on the
+        # view-based path, where Preview Visibility is evaluated by Revit.
+        profile = row.get('group') == 'Profile'
+        if has_multiple_types(row) and not profile:
+            return False
         paths = []
         point_count = [0]
         def add_curve(curve, filled=False):
@@ -268,6 +303,12 @@ class RevitLibrary(object):
                 raise ValueError('Preview geometry exceeds the safe point limit.')
             paths.append((vertices, filled))
         for element in DB.FilteredElementCollector(document).OfClass(DB.CurveElement):
+            if getattr(element, 'IsReferenceLine', False):
+                continue
+            if profile:
+                visibility = element.get_Parameter(DB.BuiltInParameter.IS_VISIBLE_PARAM)
+                if visibility is not None and visibility.AsInteger() == 0:
+                    continue
             add_curve(element.GeometryCurve)
         for region in DB.FilteredElementCollector(document).OfClass(DB.FilledRegion):
             for loop in region.GetBoundaries():
@@ -318,6 +359,7 @@ class RevitLibrary(object):
                 transaction.Start()
                 if not self._enable_type_visibility(candidates[0]):
                     raise ValueError('Could not enable Preview Visibility On for the label preview.')
+                self._uncrop_preview_view(document, candidates[0])
                 settings.ForceViewUpdate(True)
                 document.Regenerate()
                 if transaction.Commit() != DB.TransactionStatus.Committed:
@@ -398,6 +440,15 @@ class RevitLibrary(object):
             # A curve-only approximation omits all Label elements. Never treat
             # a box outline as a complete Tag/Annotation preview.
             return ''
+        # Profiles are planar curves. Draw ALL evaluated profile paths together,
+        # fitting their union rather than an existing Family Editor crop/view.
+        # This is also valid for several types after CurrentType regeneration;
+        # per-element visibility is checked by the profile path.
+        if row.get('group') == 'Profile':
+            if self._geometry_preview(document, row, destination):
+                return 'Profile geometry preview (full extents)'
+            row['preview_detail'] = 'No complete profile curve preview could be generated.'
+            return ''
         # Export preserves text/nested symbols and is preferable to a line-only
         # approximation. Curves/filled regions cover profiles with no usable view.
         if self._export_preview(document, row, destination):
@@ -428,7 +479,7 @@ class RevitLibrary(object):
             stamp = [str(family.VersionGuid), str(symbol.VersionGuid) if symbol else '', 'preview-v2']
         # Old thumbnails were generated with preview visibility Off. Use a new
         # cache identity without deleting the user's other cached data.
-        stamp = list(stamp) + ['type-visibility-on-v1']
+        stamp = list(stamp) + ['type-visibility-on-v1', 'full-extents-v1']
         if label_preview:
             stamp = list(stamp) + ['annotation-labels-v1']
             # For disk libraries, the original saved preview is the one seen
@@ -450,7 +501,7 @@ class RevitLibrary(object):
             row['preview_note'] = ('Cached Family Editor annotation preview (sample values)' if label_preview
                                    else 'Cached type/geometry preview')
             return load_bitmap(destination)
-        if symbol is not None and not needs_type_visibility(row):
+        if symbol is not None and row.get('group') != 'Profile' and not needs_type_visibility(row):
             try:
                 native = symbol.GetPreviewImage(Size(256, 256))
                 if native is not None:
@@ -492,7 +543,7 @@ class RevitLibrary(object):
             return load_bitmap(destination)
         # This fallback is a FAMILY image, not a per-type image. Label it openly.
         saved = row.get('preview')
-        if saved and os.path.isfile(saved) and not multiple_types:
+        if saved and os.path.isfile(saved) and not multiple_types and row.get('group') != 'Profile':
             row['preview_note'] = 'Saved FAMILY preview (may differ from this type)'
             return load_bitmap(saved)
         if row.get('preview_detail'):

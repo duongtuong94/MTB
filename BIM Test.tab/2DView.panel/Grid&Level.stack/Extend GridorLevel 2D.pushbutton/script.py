@@ -14,7 +14,7 @@ preserved, and the moved endpoint is not allowed to cross it.
 
 from pyrevit import revit, DB, forms
 from Autodesk.Revit.UI.Selection import ISelectionFilter
-from Autodesk.Revit.Exceptions import OperationCanceledException, InvalidOperationException
+from Autodesk.Revit.Exceptions import OperationCanceledException
 
 doc = revit.doc
 uidoc = revit.uidoc
@@ -247,21 +247,51 @@ def create_moved_curve(current_curve, picked_point, curve_end_index):
 
 
 def pick_target_point():
+    """Pick on the view plane, then undo ONLY the temporary work-plane setup.
+
+    SketchPlane cannot be restored to None by assigning None. Rolling back a
+    committed setup transaction inside a group restores even an unset plane.
+    PickPoint runs with no open Transaction, as required by the Revit API.
+    """
+    group = DB.TransactionGroup(doc, 'Temporary datum picking plane')
+    setup = None
     try:
-        return uidoc.Selection.PickPoint(
-            "Click the target line for the Grid/Level ends"
-        )
-    except InvalidOperationException:
-        forms.alert(
-            "The active view has no Work Plane.\n\n"
-            "Run the command in a plan, elevation or section view with an "
-            "active Work Plane.",
-            title="Move Datum Ends 2D"
-        )
-        return None
+        if group.Start() != DB.TransactionStatus.Started:
+            raise ValueError('Could not start the temporary picking-plane group.')
+        setup = DB.Transaction(doc, 'Set temporary view picking plane')
+        if setup.Start() != DB.TransactionStatus.Started:
+            raise ValueError('Could not start the temporary picking-plane transaction.')
+        plane = DB.Plane.CreateByNormalAndOrigin(view.ViewDirection, view.Origin)
+        view.SketchPlane = DB.SketchPlane.Create(doc, plane)
+        doc.Regenerate()
+        if setup.Commit() != DB.TransactionStatus.Committed:
+            raise ValueError('Could not prepare a picking plane for this view.')
+        return uidoc.Selection.PickPoint('Click the target line for the Grid/Level ends')
+    finally:
+        try:
+            if setup is not None:
+                try:
+                    if setup.GetStatus() == DB.TransactionStatus.Started:
+                        setup.RollBack()
+                finally:
+                    setup.Dispose()
+        finally:
+            try:
+                if group.GetStatus() == DB.TransactionStatus.Started:
+                    if group.RollBack() != DB.TransactionStatus.RolledBack:
+                        raise ValueError('Could not restore the original view work plane.')
+            finally:
+                group.Dispose()
 
 
 def main():
+    if (view.IsTemplate or str(view.ViewType) not in
+            ('FloorPlan', 'CeilingPlan', 'EngineeringPlan', 'Section', 'Elevation', 'Detail')):
+        forms.alert('Run this command in a plan, section or elevation view.', title='Move Datum Ends 2D')
+        return
+    if doc.IsFamilyDocument or doc.IsReadOnly or doc.IsModifiable:
+        forms.alert('Use an editable project with no active transaction.', title='Move Datum Ends 2D')
+        return
     try:
         picked_elements = uidoc.Selection.PickElementsByRectangle(
             DatumSelectionFilter(),

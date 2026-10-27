@@ -29,7 +29,19 @@ def has_content(image):
                 values.add((color.R // 16, color.G // 16, color.B // 16))
                 if len(values) >= 3:
                     return True
-    return len(values) >= 2
+    if len(values) >= 2:
+        return True
+    # Sparse sampling can miss every thin stroke (e.g. a tall fascia whose
+    # edges lie between sample columns). Confirm blankness using every pixel;
+    # otherwise a complete geometry preview is discarded for a cropped fallback.
+    for y in range(image.Height):
+        for x in range(image.Width):
+            color = image.GetPixel(x, y)
+            if color.A > 20:
+                values.add((color.R // 16, color.G // 16, color.B // 16))
+                if len(values) >= 2:
+                    return True
+    return False
 
 
 def draw_geometry(paths, model=False, size=256):

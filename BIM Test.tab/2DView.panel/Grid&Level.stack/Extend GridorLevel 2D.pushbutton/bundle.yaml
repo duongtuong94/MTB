@@ -2,7 +2,9 @@ title: Extend Grid Ends 2D
 tooltip: |-
   VI: Quét chọn Grid/Level rồi click điểm đích. Đầu trục phía được click chuyển sang 2D và kéo dài
   hoặc rút ngắn tới vị trí dóng; giữ nguyên đầu còn lại. Không cần bấm Finish.
+  Hỗ trợ plan, section và elevation; tự dùng Work Plane tạm rồi khôi phục, không cần đặt thủ công.
 
   EN: Rectangle-select Grids/Levels, then click a target point. The end on the clicked side
   switches to 2D and extends or shortens to the alignment, preserving the opposite end. No Finish
   step is needed.
+  Supports plan, section and elevation views using a temporary picking plane that is restored afterwards.
